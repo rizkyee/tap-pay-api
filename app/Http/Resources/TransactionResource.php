@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Transaction;
 use App\Support\Masker;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -18,6 +19,7 @@ class TransactionResource extends JsonResource
             'transaction_code' => $this->transaction_code,
             'reference' => $this->reference,
             'type' => $this->type,
+            'direction' => $this->resolveDirection($request),
             'status' => $this->status,
             'amount' => (float) $this->amount,
             'fee' => (float) $this->fee,
@@ -42,5 +44,29 @@ class TransactionResource extends JsonResource
                 ? "/api/transactions/{$this->id}/receipt"
                 : null,
         ];
+    }
+
+    /**
+     * Tentukan arah transaksi (in/out) relatif terhadap user yang login.
+     */
+    private function resolveDirection(Request $request): ?string
+    {
+        return match ($this->type) {
+            Transaction::TYPE_TOPUP => 'in',
+            Transaction::TYPE_WITHDRAW => 'out',
+            Transaction::TYPE_TRANSFER => $this->isIncomingTransferFor($request) ? 'in' : 'out',
+            default => null,
+        };
+    }
+
+    private function isIncomingTransferFor(Request $request): bool
+    {
+        $userId = $request->user()?->id;
+
+        if ($userId === null || ! $this->relationLoaded('receiverWallet')) {
+            return false;
+        }
+
+        return (int) $this->receiverWallet?->user_id === (int) $userId;
     }
 }

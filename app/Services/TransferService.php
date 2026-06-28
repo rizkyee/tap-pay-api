@@ -63,7 +63,7 @@ class TransferService
         $receiver = $session->user;
         $receiverWallet = $session->wallet;
 
-        if ($receiverWallet->id === $senderWallet->id) {
+        if ((int) $receiverWallet->id === (int) $senderWallet->id) {
             throw TapPayException::validation('Tidak dapat mengirim saldo ke wallet sendiri.');
         }
 
@@ -124,7 +124,7 @@ class TransferService
     {
         $transaction = $this->resolvePending($transactionId);
 
-        if ($transaction->receiver_wallet_id !== $receiver->wallet?->id) {
+        if ((int) $transaction->receiver_wallet_id !== (int) $receiver->wallet?->id) {
             throw TapPayException::roleNotAllowed('Anda bukan penerima transaksi ini.');
         }
 
@@ -197,7 +197,7 @@ class TransferService
     {
         $transaction = $this->resolvePending($transactionId);
 
-        if ($transaction->receiver_wallet_id !== $receiver->wallet?->id) {
+        if ((int) $transaction->receiver_wallet_id !== (int) $receiver->wallet?->id) {
             throw TapPayException::roleNotAllowed('Anda bukan penerima transaksi ini.');
         }
 
@@ -226,7 +226,7 @@ class TransferService
     {
         $transaction = $this->transactions->findById($transactionId);
 
-        if (! $transaction || $transaction->sender_wallet_id !== $sender->wallet?->id) {
+        if (! $transaction || (int) $transaction->sender_wallet_id !== (int) $sender->wallet?->id) {
             throw TapPayException::notFound('Transaksi tidak ditemukan.');
         }
 

@@ -51,6 +51,14 @@ class Transaction extends Model
     protected function casts(): array
     {
         return [
+            // Pastikan foreign key selalu integer. Sebagian driver/konfigurasi
+            // PDO (mis. emulate prepares di shared hosting) mengembalikan kolom
+            // angka sebagai string, sehingga perbandingan ketat (===/!==) gagal.
+            'user_id' => 'integer',
+            'wallet_id' => 'integer',
+            'sender_wallet_id' => 'integer',
+            'receiver_wallet_id' => 'integer',
+            'merchant_id' => 'integer',
             'amount' => 'decimal:2',
             'fee' => 'decimal:2',
             'total_amount' => 'decimal:2',

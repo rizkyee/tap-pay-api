@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\LedgerEntryResource;
+use App\Http\Resources\TransactionResource;
 use App\Models\Transaction;
 use App\Models\Wallet;
 use App\Repositories\WalletRepository;
+use App\Services\TransactionService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -107,13 +109,18 @@ class WalletController extends Controller
     }
 
     // 5. HISTORY
-    public function history(Request $request)
+    public function history(Request $request, TransactionService $transactions)
     {
-        $transactions = Transaction::where('user_id', $request->user()->id)
-            ->latest()
-            ->paginate(10);
+        $filters = $request->only([
+            'type', 'status', 'direction', 'code', 'start_date', 'end_date',
+        ]);
 
-        return $this->successResponse('History transaksi', $transactions);
+        $paginated = $transactions->paginateForUser($request->user(), $filters, 10);
+
+        return $this->successResponse(
+            'History transaksi',
+            TransactionResource::collection($paginated)->response()->getData(true),
+        );
     }
 
     // 6. LEDGER (audit debit/credit per wallet)

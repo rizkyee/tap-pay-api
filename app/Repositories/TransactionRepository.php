@@ -40,6 +40,7 @@ class TransactionRepository
     public function queryForWallet(int $walletId)
     {
         return Transaction::query()
+            ->with(['senderWallet.user', 'receiverWallet.user'])
             ->where(function ($query) use ($walletId) {
                 $query->where('wallet_id', $walletId)
                     ->orWhere('sender_wallet_id', $walletId)
@@ -96,7 +97,7 @@ class TransactionRepository
             ->where('type', Transaction::TYPE_TRANSFER)
             ->where('status', Transaction::STATUS_PENDING)
             ->where('receiver_wallet_id', $walletId)
-            ->with(['senderWallet.user', 'approval'])
+            ->with(['senderWallet.user', 'receiverWallet.user', 'approval'])
             ->latest()
             ->get();
     }

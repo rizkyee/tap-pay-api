@@ -117,7 +117,7 @@ class NfcSessionService
     {
         $session = $this->sessions->findById($id);
 
-        if (! $session || $session->user_id !== $user->id) {
+        if (! $session || (int) $session->user_id !== (int) $user->id) {
             throw TapPayException::notFound('Sesi NFC tidak ditemukan.');
         }
 

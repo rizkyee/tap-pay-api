@@ -103,11 +103,17 @@ class TransactionService
 
     private function userInvolved(User $user, Transaction $transaction): bool
     {
-        $walletId = $user->wallet?->id;
+        $walletId = (int) $user->wallet?->id;
 
-        return $transaction->wallet_id === $walletId
-            || $transaction->sender_wallet_id === $walletId
-            || $transaction->receiver_wallet_id === $walletId
-            || $transaction->merchant_id === $user->id;
+        if ($walletId > 0 && (
+            (int) $transaction->wallet_id === $walletId
+            || (int) $transaction->sender_wallet_id === $walletId
+            || (int) $transaction->receiver_wallet_id === $walletId
+        )) {
+            return true;
+        }
+
+        return $transaction->merchant_id !== null
+            && (int) $transaction->merchant_id === (int) $user->id;
     }
 }
