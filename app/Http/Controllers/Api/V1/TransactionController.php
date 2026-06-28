@@ -3,134 +3,90 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\Transaction;
-use App\Models\User;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use App\Http\Resources\TransactionResource;
+use App\Services\TransactionService;
 use App\Traits\ApiResponse;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class TransactionController extends Controller
 {
     use ApiResponse;
 
-    // =========================
-    // 1. TRANSFER
-    // =========================
-    public function transfer(Request $request)
+    public function __construct(
+        private readonly TransactionService $transactions,
+    ) {
+    }
+
+    // GET /api/transactions
+    public function index(Request $request): JsonResponse
     {
-        $request->validate([
-            'receiver_id' => 'required|exists:users,id',
-            'amount' => 'required|numeric|min:1000',
-            'fee' => 'nullable|numeric|min:0'
+        $filters = $request->only([
+            'type', 'status', 'direction', 'code', 'start_date', 'end_date',
         ]);
 
-        $sender = $request->user();
-        $receiver = User::find($request->receiver_id);
+        $paginated = $this->transactions->paginateForUser($request->user(), $filters);
 
-        if (!$receiver) {
-            return $this->errorResponse('Receiver tidak ditemukan');
-        }
-
-        $fee = $request->fee ?? 0;
-        $total = $request->amount + $fee;
-
-        if ($sender->wallet->balance < $total) {
-            return $this->errorResponse('Saldo tidak cukup');
-        }
-
-        return DB::transaction(function () use ($sender, $receiver, $request, $fee, $total) {
-
-            // deduct sender
-            $senderWallet = $sender->wallet;
-            $receiverWallet = $receiver->wallet;
-
-            $senderBefore = $senderWallet->balance;
-            $receiverBefore = $receiverWallet->balance;
-
-            $senderWallet->balance -= $total;
-            $receiverWallet->balance += $request->amount;
-
-            $senderWallet->save();
-            $receiverWallet->save();
-
-            $trx = Transaction::create([
-                'sender_id' => $sender->id,
-                'receiver_id' => $receiver->id,
-                'amount' => $request->amount,
-                'fee' => $fee,
-                'type' => 'transfer',
-                'status' => 'success',
-                'reference' => Str::uuid(),
-                'description' => 'Transfer antar user'
-            ]);
-
-            return $this->successResponse('Transfer berhasil', [
-                'transaction' => $trx
-            ]);
-        });
+        return $this->successResponse(
+            'Daftar transaksi.',
+            TransactionResource::collection($paginated)->response()->getData(true),
+        );
     }
 
-    // =========================
-    // 2. LIST TRANSACTIONS
-    // =========================
-    public function index(Request $request)
+    // GET /api/transactions/recent
+    public function recent(Request $request): JsonResponse
     {
-        $data = Transaction::where('sender_id', $request->user()->id)
-            ->orWhere('receiver_id', $request->user()->id)
-            ->latest()
-            ->paginate(10);
+        $items = $this->transactions->recentForUser($request->user());
 
-        return $this->successResponse('List transaksi', $data);
+        return $this->successResponse('Transaksi terbaru.', [
+            'transactions' => TransactionResource::collection($items),
+        ]);
     }
 
-    // =========================
-    // 3. DETAIL TRANSAKSI
-    // =========================
-    public function show($id)
+    // GET /api/transactions/{id}
+    public function show(Request $request, int $id): JsonResponse
     {
-        $trx = Transaction::find($id);
+        $transaction = $this->transactions->findForUser($request->user(), $id);
 
-        if (!$trx) {
-            return $this->errorResponse('Transaksi tidak ditemukan');
-        }
-
-        return $this->successResponse('Detail transaksi', $trx);
+        return $this->successResponse('Detail transaksi.', [
+            'transaction' => new TransactionResource($transaction),
+        ]);
     }
 
-    // =========================
-    // 4. REFUND / REVERSAL
-    // =========================
-    public function refund(Request $request, $id)
+    // GET /api/transactions/{id}/receipt
+    public function receipt(Request $request, int $id): JsonResponse
     {
-        $trx = Transaction::find($id);
+        $data = $this->transactions->receiptData($request->user(), $id);
 
-        if (!$trx) {
-            return $this->errorResponse('Transaksi tidak ditemukan');
-        }
+        return $this->successResponse('Receipt transaksi.', ['receipt' => $data]);
+    }
 
-        if ($trx->type !== 'transfer') {
-            return $this->errorResponse('Hanya transfer yang bisa direfund');
-        }
+    // GET /api/transactions/{id}/receipt-image
+    public function receiptImage(Request $request, int $id): JsonResponse
+    {
+        $data = $this->transactions->receiptData($request->user(), $id);
 
-        return DB::transaction(function () use ($trx) {
+        // Payload data siap dirender menjadi image di sisi client / printer.
+        return $this->successResponse('Data receipt untuk share image.', [
+            'format' => 'image-payload',
+            'receipt' => $data,
+        ]);
+    }
 
-            $sender = User::find($trx->sender_id);
-            $receiver = User::find($trx->receiver_id);
+    // GET /api/transactions/{id}/print  (HTML printable view)
+    public function print(Request $request, int $id): View
+    {
+        $data = $this->transactions->receiptData($request->user(), $id);
 
-            // rollback wallet
-            $sender->wallet->balance += $trx->amount;
-            $receiver->wallet->balance -= $trx->amount;
+        return view('receipts.print', ['receipt' => $data]);
+    }
 
-            $sender->wallet->save();
-            $receiver->wallet->save();
+    // GET /api/transactions/{id}/verify
+    public function verify(Request $request, int $id): JsonResponse
+    {
+        $result = $this->transactions->verifyReceipt($request->user(), $id);
 
-            $trx->update([
-                'status' => 'refunded',
-                'description' => 'Refund transaction'
-            ]);
-
-            return $this->successResponse('Refund berhasil', $trx);
-        });
+        return $this->successResponse('Hasil verifikasi receipt.', $result);
     }
 }

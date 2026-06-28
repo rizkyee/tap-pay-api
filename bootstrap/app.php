@@ -1,5 +1,7 @@
 <?php
 
+use App\Exceptions\TapPayException;
+use App\Http\Middleware\EnsureUserRole;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -13,12 +15,23 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->alias([
+            'role' => EnsureUserRole::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (Throwable $e, Request $request) {
             if (! $request->expectsJson() && ! $request->is('api/*')) {
                 return null;
+            }
+
+            // Exception domain TapPay dengan error code spesifik.
+            if ($e instanceof TapPayException) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'errors' => ['code' => $e->errorCode],
+                ], $e->statusCode);
             }
 
             if ($e instanceof Illuminate\Validation\ValidationException) {
