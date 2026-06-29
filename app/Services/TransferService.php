@@ -168,11 +168,11 @@ class TransferService
                 'Transfer masuk ' . $transaction->transaction_code,
             );
 
-            $transaction->update([
-                'status' => Transaction::STATUS_COMPLETED,
-                'approved_at' => now(),
-                'completed_at' => now(),
-            ]);
+          $transaction->forceFill([
+    'status' => Transaction::STATUS_COMPLETED,
+    'approved_at' => $transaction->approved_at ?? now(),
+    'completed_at' => $transaction->completed_at ?? now(),
+])->save();
 
             $transaction->approval?->update([
                 'status' => TransactionApproval::STATUS_APPROVED,
@@ -201,10 +201,10 @@ class TransferService
             throw TapPayException::roleNotAllowed('Anda bukan penerima transaksi ini.');
         }
 
-        $transaction->update([
-            'status' => Transaction::STATUS_REJECTED,
-            'description' => 'Transfer ditolak penerima',
-        ]);
+$transaction->forceFill([
+    'status' => Transaction::STATUS_REJECTED,
+    'description' => 'Transfer ditolak penerima',
+])->save();
 
         $transaction->approval?->update([
             'status' => TransactionApproval::STATUS_REJECTED,
@@ -234,10 +234,10 @@ class TransferService
             throw TapPayException::validation('Hanya transaksi pending yang bisa dibatalkan.');
         }
 
-        $transaction->update([
-            'status' => Transaction::STATUS_CANCELLED,
-            'description' => 'Transfer dibatalkan pengirim',
-        ]);
+     $transaction->forceFill([
+    'status' => Transaction::STATUS_CANCELLED,
+    'description' => 'Transfer dibatalkan pengirim',
+])->save();
 
         $transaction->approval?->update(['status' => TransactionApproval::STATUS_EXPIRED]);
 

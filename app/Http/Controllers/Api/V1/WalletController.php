@@ -9,8 +9,9 @@ use App\Models\Transaction;
 use App\Models\Wallet;
 use App\Repositories\WalletRepository;
 use App\Services\TransactionService;
-use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use App\Traits\ApiResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -109,17 +110,33 @@ class WalletController extends Controller
     }
 
     // 5. HISTORY
-    public function history(Request $request, TransactionService $transactions)
+    public function history(Request $request): JsonResponse
     {
         $filters = $request->only([
-            'type', 'status', 'direction', 'code', 'start_date', 'end_date',
+            'type',
+            'status',
+            'direction',
+            'code',
+            'start_date',
+            'end_date',
         ]);
 
-        $paginated = $transactions->paginateForUser($request->user(), $filters, 10);
+        $perPage = (int) $request->input('per_page', 15);
+
+        if ($perPage < 1) {
+            $perPage = 15;
+        }
+
+        if ($perPage > 50) {
+            $perPage = 50;
+        }
+
+        $paginated = app(\App\Services\TransactionService::class)
+            ->paginateForUser($request->user(), $filters, $perPage);
 
         return $this->successResponse(
-            'History transaksi',
-            TransactionResource::collection($paginated)->response()->getData(true),
+            'Riwayat transaksi.',
+            TransactionResource::collection($paginated)->response()->getData(true)
         );
     }
 
