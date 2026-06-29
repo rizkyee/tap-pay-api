@@ -168,11 +168,12 @@ class TransferService
                 'Transfer masuk ' . $transaction->transaction_code,
             );
 
-          $transaction->forceFill([
-    'status' => Transaction::STATUS_COMPLETED,
-    'approved_at' => $transaction->approved_at ?? now(),
-    'completed_at' => $transaction->completed_at ?? now(),
-])->save();
+            $transaction->forceFill([
+                'status' => Transaction::STATUS_COMPLETED,
+                'description' => 'Transfer NFC berhasil',
+                'approved_at' => $transaction->approved_at ?? now(),
+                'completed_at' => $transaction->completed_at ?? now(),
+            ])->save();
 
             $transaction->approval?->update([
                 'status' => TransactionApproval::STATUS_APPROVED,
