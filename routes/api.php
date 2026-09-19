@@ -52,6 +52,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [WalletController::class, 'index'])->name('index');
         Route::get('/balance', [WalletController::class, 'balance'])->name('balance');
         Route::post('/topup', [WalletController::class, 'topup'])->name('topup');
+        Route::post('/topup/merchant-code', [WalletController::class, 'merchantTopupCode'])->name('topup.merchant-code');
+        Route::get('/topup/merchant-code/{id}', [WalletController::class, 'merchantTopupCodeStatus'])->whereNumber('id')->name('topup.merchant-code.status');
         Route::post('/withdraw', [WalletController::class, 'withdraw'])->name('withdraw');
         Route::get('/history', [WalletController::class, 'history'])->name('history');
         Route::get('/ledger', [WalletController::class, 'ledger'])->name('ledger');
@@ -80,6 +82,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/summary', [MerchantController::class, 'summary'])->name('summary');
         Route::get('/limits', [MerchantController::class, 'limits'])->name('limits');
         Route::post('/topups', [MerchantController::class, 'topUp'])->name('topups.store');
+        Route::post('/topups/lookup-code', [MerchantController::class, 'lookupTopUpByCode'])->name('topups.lookup-code');
+        Route::post('/topups/confirm-code', [MerchantController::class, 'confirmTopUpByCode'])->name('topups.confirm-code');
         Route::get('/topups', [MerchantController::class, 'topUps'])->name('topups.index');
         Route::get('/topups/recent', [MerchantController::class, 'recentTopUps'])->name('topups.recent');
     });

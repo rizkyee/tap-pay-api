@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\Wallet\MerchantTopupCodeRequest;
 use App\Http\Resources\LedgerEntryResource;
 use App\Http\Resources\TransactionResource;
 use App\Models\Transaction;
 use App\Models\Wallet;
 use App\Repositories\WalletRepository;
+use App\Services\MerchantTopupCodeService;
 use App\Services\TransactionService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -35,7 +37,7 @@ class WalletController extends Controller
         ]);
     }
 
-    // 3. TOP UP
+    // 3. TOP UP (langsung — legacy/dev)
     public function topup(Request $request)
     {
         $request->validate([
@@ -68,6 +70,52 @@ class WalletController extends Controller
                 'wallet' => $wallet
             ]);
         });
+    }
+
+    // 3b. Buat kode bayar isi saldo via merchant
+    public function merchantTopupCode(MerchantTopupCodeRequest $request, MerchantTopupCodeService $codes): JsonResponse
+    {
+        $transaction = $codes->createPaymentRequest(
+            $request->user(),
+            (float) $request->input('amount'),
+        );
+
+        return $this->successResponse('Kode bayar merchant berhasil dibuat.', [
+            'transaction' => new TransactionResource($transaction),
+            'payment_code' => $transaction->payment_code,
+            'payment_code_formatted' => self::formatPaymentCode($transaction->payment_code),
+            'amount' => (float) $transaction->amount,
+            'fee' => (float) $transaction->fee,
+            'total_amount' => (float) $transaction->total_amount,
+            'expires_at' => $transaction->expires_at?->toISOString(),
+        ], 201);
+    }
+
+    // 3c. Cek status kode bayar merchant
+    public function merchantTopupCodeStatus(Request $request, int $id, MerchantTopupCodeService $codes): JsonResponse
+    {
+        $transaction = $codes->getRequestForCustomer($request->user(), $id);
+
+        return $this->successResponse('Status kode bayar.', [
+            'transaction' => new TransactionResource($transaction),
+            'payment_code' => $transaction->payment_code,
+            'payment_code_formatted' => self::formatPaymentCode($transaction->payment_code),
+            'amount' => (float) $transaction->amount,
+            'fee' => (float) $transaction->fee,
+            'total_amount' => (float) $transaction->total_amount,
+            'expires_at' => $transaction->expires_at?->toISOString(),
+        ]);
+    }
+
+    public static function formatPaymentCode(?string $code): ?string
+    {
+        if (! $code) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D+/', '', $code) ?: $code;
+
+        return trim(chunk_split($digits, 4, ' '));
     }
 
     // 4. WITHDRAW

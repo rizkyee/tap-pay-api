@@ -8,6 +8,13 @@ use Illuminate\Database\Eloquent\Collection;
 
 class TransactionRepository
 {
+    public function findByPaymentCode(string $code): ?Transaction
+    {
+        $normalized = preg_replace('/\D+/', '', $code) ?: $code;
+
+        return Transaction::query()->where('payment_code', $normalized)->first();
+    }
+
     public function create(array $data): Transaction
     {
         return Transaction::query()->create($data);
